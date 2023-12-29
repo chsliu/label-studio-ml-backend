@@ -1,3 +1,5 @@
+# https://labelstud.io/guide/ml_create
+
 import os
 import logging
 import boto3
@@ -16,7 +18,7 @@ from urllib.parse import urlparse
 
 
 logger = logging.getLogger(__name__)
-access_token = 'b7e78c338c72f337a00df7633d81a64138f7eee8'
+# access_token = 'b7e78c338c72f337a00df7633d81a64138f7eee8'
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection"""
@@ -52,9 +54,10 @@ class MMDetection(LabelStudioMLBase):
         
         config_file = config_file or os.environ['config_file']
         checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
-        self.hostname = os.environ['LABEL_STUDIO_HOSTNAME']
-        self.access_token = access_token
-        update_fn(fit_helper)
+        self.hostname = os.environ['LABEL_STUDIO_HOST']
+        self.access_token = os.environ['LABEL_STUDIO_API_KEY']
+        
+        # update_fn(fit_helper)
         
         # init_log()
         # find_log()
@@ -106,7 +109,9 @@ class MMDetection(LabelStudioMLBase):
                     for predicted_value in label_attrs.get('predicted_values', '').split(','):
                         self.label_map[predicted_value] = label_name
 
-        print('Load new model from: ', config_file, checkpoint_file)
+        # print('Load new model from: ', config_file, checkpoint_file)
+        logger.info(f'Load new model from: {config_file} {checkpoint_file}')
+        
         self.model = init_detector(config_file, checkpoint_file, device=device)
         self.score_thresh = score_threshold
         
@@ -139,6 +144,9 @@ class MMDetection(LabelStudioMLBase):
         return image_url
 
     def predict(self, tasks, **kwargs):
+    
+        logger.info(f"MMDetection::predict(tasks, {kwargs}) is called")
+        
         assert len(tasks) == 1
         task = tasks[0]
         
@@ -218,7 +226,8 @@ class MMDetection(LabelStudioMLBase):
             
             # print("=====")
             if output_label not in self.labels_in_config:
-                print(output_label + ' label not found in project config.')
+                # print(output_label + ' label not found in project config.')
+                logger.info(f'{output_label} label not found in project config.')
                 continue
             # else:
                 # print("=== %s label founded"%(output_label))
@@ -246,7 +255,8 @@ class MMDetection(LabelStudioMLBase):
         
                 bbox = list(bbox)
                 if not bbox:
-                    print("not bbox")
+                    # print("not bbox")
+                    logger.info("not bbox")
                     continue
                 # score = float(bbox[-1])
                 score = float(scores.pop(0))
@@ -297,7 +307,9 @@ class MMDetection(LabelStudioMLBase):
         # print("=====")
         # print("type(event):",type(event))
         # print("=====")
-        print("MMDetection::fit(%s, data, %s) is called" %(event,kwargs))
+        
+        # print("MMDetection::fit(%s, data, %s) is called" %(event,kwargs))
+        logger.info(f"MMDetection::fit({event}, data, {kwargs}) is called")
         
         if event.startswith('ANNOTATION_UPDATED'):
             # print("=====")
@@ -323,26 +335,6 @@ def json_load(file, int_keys=False):
         else:
             return data
 
-
-def fit_helper(event, data, helper, **additional_params):
-    helper.fit(event, data, additional_params)
-    
-
-def init_log():
-    import logging
-    import sys
-
-    root = logging.getLogger()
-    # root.setLevel(logging.DEBUG)
-    root.setLevel(logging.INFO)
-
-    handler = logging.StreamHandler(sys.stdout)
-    # handler.setLevel(logging.DEBUG)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    root.addHandler(handler)
-
     
 def find_log():
     import logging
@@ -350,14 +342,53 @@ def find_log():
 
     # note, this will create a new logger if the name doesn't exist, 
     # which will have no handlers attached (yet)
-    logger = logging.getLogger('<name>')
+    # logger = logging.getLogger('<name>')
+    logger = logging.getLogger()
 
     # print("find_log")
 
     for h in logger.handlers:
+        logger.info(f'{h}')
         # check the handler is a file handler 
         # (rotating handler etc. inherit from this, so it will still work)
         # stream handlers write to stderr, so their filename is not useful to us
         if isinstance(h, FileHandler):
             # h.stream should be an open file handle, it's name is the path
-            print(h.stream.name)
+            # print(h.stream.name)
+            logger.info(f'{h.stream.name}')
+    
+
+def init_log():
+    import logging
+    import sys
+
+    # find_log()
+
+    root = logging.getLogger()
+    
+    root.handlers = []
+    
+    if not root.hasHandlers():
+    # if True:
+        root.propagate = False
+        
+        # root.setLevel(logging.DEBUG)
+        root.setLevel(logging.INFO)
+
+        handler = logging.StreamHandler(sys.stdout)
+        # handler.setLevel(logging.DEBUG)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
+    # else:
+        # print(logging.getHandlerNames())
+
+
+log_inited = init_log()
+
+
+def fit_helper(event, data, helper, **additional_params):
+    helper.fit(event, data, additional_params)
+
+fit_updated = update_fn(fit_helper)

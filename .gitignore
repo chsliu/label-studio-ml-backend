@@ -131,3 +131,4 @@ cache.db
 mmdetection/
 faster_rcnn_r50_fpn_1x_coco_20200130-047c8118.pth
 coco-detector/Dockerfile-cuda
+data/models/
